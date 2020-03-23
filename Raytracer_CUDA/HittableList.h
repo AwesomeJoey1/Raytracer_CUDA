@@ -26,7 +26,7 @@ __device__ bool HittableList::hit(const Ray& ray, float tMin, float tMax, hitRec
 		if (_list[i]->hit(ray, tMin, closestSoFar, hitRecTemp))
 		{
 			hitAnything = true;
-			closestSoFar = rec.t;
+			closestSoFar = hitRecTemp.t;
 			rec = hitRecTemp;
 		}
 	}

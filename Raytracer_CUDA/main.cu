@@ -16,10 +16,11 @@
 #include "Ray.h"
 #include "Camera.h"
 #include "HittableList.h"
+#include "Material.h"
 #include "Sphere.h"
 
-#define IMG_WIDTH 1920
-#define IMG_HEIGHT 1080
+#define IMG_WIDTH 1200
+#define IMG_HEIGHT 600
 #define NUM_SAMPLES 100
 #define TX 8
 #define TY 8
@@ -37,30 +38,23 @@ void checkCuda(cudaError_t result, char const* const func, const char* const fil
 	}
 }
 
-__device__ glm::vec3 randomInUnitSphere(curandState* localRandState)
-{
-	glm::vec3 randomPoint;
-	do
-	{
-		randomPoint = 2.0f * glm::vec3(curand_uniform(localRandState), curand_uniform(localRandState), curand_uniform(localRandState)) - glm::vec3(1.0f, 1.0f, 1.0f);
-	} while (glm::length2(randomPoint) >= 1.0f);
-
-	return randomPoint;
-}
-
 // calculates the color of one ray
  __device__ glm::vec3 color(const Ray &ray, Hittable **world, curandState *localRandState)
 {
 	Ray currentRay = ray;
-	float currentAttenuation = 1.0f;
+	glm::vec3 currentAttenuation = glm::vec3(1.0f, 1.0f, 1.0f);;
 
 	for (int i = 0; i < 50; i++)
 	{
 		hitRecord rec;
-		if ((*world)->hit(currentRay, 0.0001f, FLT_MAX, rec)) {
-			glm::vec3 target = rec.p + rec.normal + randomInUnitSphere(localRandState);
-			currentAttenuation *= 0.5f;
-			currentRay = Ray(rec.p, target - rec.p);
+		if ((*world)->hit(currentRay, 0.001f, FLT_MAX, rec)) {
+			Ray scatteredRay;
+			glm::vec3 attenuation;
+			if (rec.material->scatter(currentRay, rec, attenuation, scatteredRay, localRandState)) {
+				currentAttenuation *= attenuation;
+				currentRay = scatteredRay;
+			}
+
 			//glm::vec3 normalColor = 0.5f * glm::vec3(rec.normal.x + 1.0f, rec.normal.y + 1.0f, rec.normal.z + 1.0f);
 
 			//glm::vec2 texCoordinate;
@@ -78,9 +72,10 @@ __device__ glm::vec3 randomInUnitSphere(curandState* localRandState)
 			//return glm::max(0.f, glm::dot(rec.normal, -glm::normalize(ray.direction()))) * glm::mix(normalColor, normalColor * 0.8f, pattern);
 		}
 		else {
-			glm::vec3 direction = glm::normalize(ray.direction());
+			glm::vec3 direction = glm::normalize(currentRay.direction());
 			float t = 0.5f * (direction.y + 1.0f);
-			return currentAttenuation * (1.0f - t) * glm::vec3(1.0, 1.0, 1.0) + t * glm::vec3(0.5, 0.7, 1.0);
+			glm::vec3 c = (1.0f - t) * glm::vec3(1.0, 1.0, 1.0) + t * glm::vec3(0.5, 0.7, 1.0);
+			return currentAttenuation * c;
 		}
 	}
 	return glm::vec3(0.0f, 0.0f, 0.0f); // Recursion limit exceeded
@@ -119,15 +114,23 @@ __global__ void render(glm::vec3* frameBuffer, int width, int height, int numSam
 		Ray ray = (*camera)->getRay(u, v);
 		col += color(ray, world, &localRandState);
 	}
-	frameBuffer[pixelIndex] = col / float(numSamples);
+	randState[pixelIndex] = localRandState;
+
+
+	col /= float(numSamples);
+	col.x = glm::sqrt(col.x);
+	col.y = glm::sqrt(col.y);
+	col.z = glm::sqrt(col.z);
+
+	frameBuffer[pixelIndex] = col;
 }
 
 __global__ void createWorld(Hittable **_dList, Hittable **_dWorld, Camera **_dCamera)
 {
 	if (threadIdx.x == 0 && blockIdx.x == 0)
 	{
-		*(_dList) = new Sphere(glm::vec3(0.0f, 0.0f, -1.0f), 0.5f);
-		*(_dList + 1) = new Sphere(glm::vec3(0.0f, -100.5f, -1.0f), 100.0f);
+		*(_dList) = new Sphere(glm::vec3(0.0f, 0.0f, -1.0f), 0.5f, new Lambertian(glm::vec3(0.8f, 0.3f, 0.3f)));
+		*(_dList + 1) = new Sphere(glm::vec3(0.0f, -100.48f, -1.0f), 100.0f, new Lambertian(glm::vec3(0.8f, 0.8f, 0.0f)));
 		*_dWorld = new HittableList(_dList, 2);
 		*_dCamera = new Camera(glm::vec3(-2.0f, -1.0f, -1.0f),	// lower left corner
 			glm::vec3(4.0f, 0.0f, 0.0f),	// horizontal 
@@ -213,6 +216,7 @@ int main()
 	checkCudaErrors(cudaFree(_dList));
 	checkCudaErrors(cudaFree(_dWorld));
 	checkCudaErrors(cudaFree(_dCamera));
+	checkCudaErrors(cudaFree(_dRandState));
 	checkCudaErrors(cudaFree(frameBuffer));
 
 	cudaDeviceReset();

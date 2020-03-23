@@ -1,10 +1,13 @@
 #pragma once
 #include "Ray.h"
 
+class Material;
+
 struct hitRecord {
-	glm::vec3 p;
 	float t;
+	glm::vec3 p;
 	glm::vec3 normal;
+	Material *material;
 };
 
 class Hittable

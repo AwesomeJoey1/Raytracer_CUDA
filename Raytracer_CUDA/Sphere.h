@@ -5,7 +5,7 @@ class Sphere : public Hittable
 {
 public:
 	__device__ Sphere () {}
-	__device__ Sphere(glm::vec3 center, float radius) : _center(center), _radius(radius) {};
+	__device__ Sphere(glm::vec3 center, float radius, Material *material) : _center(center), _radius(radius), _material(material) {};
 
 	__device__ virtual bool hit(const Ray& ray, float tMin, float tMax, hitRecord& rec) const;
 
@@ -13,6 +13,7 @@ public:
 private:
 	glm::vec3 _center;
 	float _radius;
+    Material *_material;
 };
 
 __device__ bool Sphere::hit(const Ray& ray, float tMin, float tMax, hitRecord& rec) const
@@ -28,6 +29,7 @@ __device__ bool Sphere::hit(const Ray& ray, float tMin, float tMax, hitRecord& r
             rec.t = temp;
             rec.p = ray.pointAt(rec.t);
             rec.normal = (rec.p - _center) / _radius;
+            rec.material = _material;
             return true;
         }
         temp = (-b + sqrt(discriminant)) / a;
@@ -35,6 +37,7 @@ __device__ bool Sphere::hit(const Ray& ray, float tMin, float tMax, hitRecord& r
             rec.t = temp;
             rec.p = ray.pointAt(rec.t);
             rec.normal = (rec.p - _center) / _radius;
+            rec.material = _material;
             return true;
         }
     }
