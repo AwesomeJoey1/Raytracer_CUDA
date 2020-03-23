@@ -89,8 +89,11 @@
     <ClCompile Include="Image.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="Hittable.h" />
+    <ClInclude Include="HittableList.h" />
     <ClInclude Include="Image.h" />
     <ClInclude Include="Ray.h" />
+    <ClInclude Include="Sphere.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
