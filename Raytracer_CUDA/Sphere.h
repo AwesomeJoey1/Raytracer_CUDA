@@ -9,11 +9,11 @@ public:
 
 	__device__ virtual bool hit(const Ray& ray, float tMin, float tMax, hitRecord& rec) const;
 
+    Material* _material;
 
 private:
 	glm::vec3 _center;
 	float _radius;
-    Material *_material;
 };
 
 __device__ bool Sphere::hit(const Ray& ray, float tMin, float tMax, hitRecord& rec) const
@@ -28,7 +28,8 @@ __device__ bool Sphere::hit(const Ray& ray, float tMin, float tMax, hitRecord& r
         if (temp < tMax && temp > tMin) {
             rec.t = temp;
             rec.p = ray.pointAt(rec.t);
-            rec.normal = (rec.p - _center) / _radius;
+            glm::vec3 outwardNormal = (rec.p - _center) / _radius;
+            rec.setFaceNormal(ray, outwardNormal);
             rec.material = _material;
             return true;
         }
@@ -36,7 +37,8 @@ __device__ bool Sphere::hit(const Ray& ray, float tMin, float tMax, hitRecord& r
         if (temp < tMax && temp > tMin) {
             rec.t = temp;
             rec.p = ray.pointAt(rec.t);
-            rec.normal = (rec.p - _center) / _radius;
+            glm::vec3 outwardNormal = (rec.p - _center) / _radius;
+            rec.setFaceNormal(ray, outwardNormal);
             rec.material = _material;
             return true;
         }

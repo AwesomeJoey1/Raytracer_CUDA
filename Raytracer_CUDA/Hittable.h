@@ -7,7 +7,14 @@ struct hitRecord {
 	float t;
 	glm::vec3 p;
 	glm::vec3 normal;
+	bool frontFace;
 	Material *material;
+
+	__device__ inline void setFaceNormal(const Ray& ray, const glm::vec3& outwardNormal)
+	{
+		frontFace = glm::dot(ray.direction(), outwardNormal) < 0;
+		normal = frontFace ? outwardNormal : -outwardNormal;
+	}
 };
 
 class Hittable

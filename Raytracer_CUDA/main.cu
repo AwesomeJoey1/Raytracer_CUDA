@@ -10,8 +10,8 @@
 #include <iostream>
 #include <time.h>
 #include <float.h>
-#include <math.h>
 
+#include "Common.h"
 #include "Image.h"
 #include "Ray.h"
 #include "Camera.h"
@@ -22,6 +22,7 @@
 #define IMG_WIDTH 1200
 #define IMG_HEIGHT 600
 #define NUM_SAMPLES 100
+#define MAX_DEPTH 50
 #define TX 8
 #define TY 8
 
@@ -39,12 +40,12 @@ void checkCuda(cudaError_t result, char const* const func, const char* const fil
 }
 
 // calculates the color of one ray
- __device__ glm::vec3 color(const Ray &ray, Hittable **world, curandState *localRandState)
+ __device__ glm::vec3 rayColor(const Ray &ray, Hittable **world, curandState *localRandState)
 {
 	Ray currentRay = ray;
 	glm::vec3 currentAttenuation = glm::vec3(1.0f, 1.0f, 1.0f);;
 
-	for (int i = 0; i < 50; i++)
+	for (int i = 0; i < MAX_DEPTH; i++)
 	{
 		hitRecord rec;
 		if ((*world)->hit(currentRay, 0.001f, FLT_MAX, rec)) {
@@ -53,6 +54,9 @@ void checkCuda(cudaError_t result, char const* const func, const char* const fil
 			if (rec.material->scatter(currentRay, rec, attenuation, scatteredRay, localRandState)) {
 				currentAttenuation *= attenuation;
 				currentRay = scatteredRay;
+			}
+			else {
+				return glm::vec3(0.0f);
 			}
 
 			//glm::vec3 normalColor = 0.5f * glm::vec3(rec.normal.x + 1.0f, rec.normal.y + 1.0f, rec.normal.z + 1.0f);
@@ -91,7 +95,7 @@ void checkCuda(cudaError_t result, char const* const func, const char* const fil
 
 	 int pixelIndex = j * width + i;
 	 // Each thread gets same seed, different sequence number, no offset
-	 curand_init(1984, pixelIndex, 0, &randState[pixelIndex]);
+	 curand_init(1984 + pixelIndex, 0, 0, &randState[pixelIndex]);
  }
 
  // cuda function to render full scene into a framebuffer
@@ -112,7 +116,7 @@ __global__ void render(glm::vec3* frameBuffer, int width, int height, int numSam
 		float u = float(i + curand_uniform(&localRandState)) / float(width);
 		float v = float(j + curand_uniform(&localRandState)) / float(height);
 		Ray ray = (*camera)->getRay(u, v);
-		col += color(ray, world, &localRandState);
+		col += rayColor(ray, world, &localRandState);
 	}
 	randState[pixelIndex] = localRandState;
 
@@ -129,9 +133,10 @@ __global__ void createWorld(Hittable **_dList, Hittable **_dWorld, Camera **_dCa
 {
 	if (threadIdx.x == 0 && blockIdx.x == 0)
 	{
-		*(_dList) = new Sphere(glm::vec3(0.0f, 0.0f, -1.0f), 0.5f, new Lambertian(glm::vec3(0.8f, 0.3f, 0.3f)));
-		*(_dList + 1) = new Sphere(glm::vec3(0.0f, -100.48f, -1.0f), 100.0f, new Lambertian(glm::vec3(0.8f, 0.8f, 0.0f)));
-		*_dWorld = new HittableList(_dList, 2);
+		_dList[0] = new Sphere(glm::vec3(0.0f, 0.0f, -1.0f), 0.5f, new Lambertian(glm::vec3(0.8f, 0.3f, 0.3f)));
+		_dList[1] = new Sphere(glm::vec3(0.0f, -100.48f, -1.0f), 100.0f, new Lambertian(glm::vec3(0.8f, 0.8f, 0.0f)));
+		_dList[2] = new Sphere(glm::vec3(1.0f, 0.0f, -1.0f), 0.5f, new Metal(glm::vec3(0.8f, 0.6f, 0.2f), 0.3f));
+		*_dWorld = new HittableList(_dList, 3);
 		*_dCamera = new Camera(glm::vec3(-2.0f, -1.0f, -1.0f),	// lower left corner
 			glm::vec3(4.0f, 0.0f, 0.0f),	// horizontal 
 			glm::vec3(0.0f, 2.0f, 0.0f),	// vertical
@@ -141,8 +146,11 @@ __global__ void createWorld(Hittable **_dList, Hittable **_dWorld, Camera **_dCa
 
 __global__ void freeWorld(Hittable **_dList, Hittable **_dWorld, Camera **_dCamera)
 {
-	delete *(_dList);
-	delete *(_dList + 1);
+	for (int i = 0; i < 3; i++)
+	{
+		delete ((Sphere*)_dList[i])->_material;
+		delete _dList[i];
+	}
 	delete *_dWorld;
 	delete* _dCamera;
 }
