@@ -135,8 +135,9 @@ __global__ void createWorld(Hittable **_dList, Hittable **_dWorld, Camera **_dCa
 	{
 		_dList[0] = new Sphere(glm::vec3(0.0f, 0.0f, -1.0f), 0.5f, new Lambertian(glm::vec3(0.8f, 0.3f, 0.3f)));
 		_dList[1] = new Sphere(glm::vec3(0.0f, -100.48f, -1.0f), 100.0f, new Lambertian(glm::vec3(0.8f, 0.8f, 0.0f)));
-		_dList[2] = new Sphere(glm::vec3(1.0f, 0.0f, -1.0f), 0.5f, new Metal(glm::vec3(0.8f, 0.6f, 0.2f), 0.3f));
-		*_dWorld = new HittableList(_dList, 3);
+		_dList[2] = new Sphere(glm::vec3(1.0f, 0.0f, -1.0f), 0.5f, new Metal(glm::vec3(0.8f, 0.6f, 0.2f), 1.0f));
+		_dList[3] = new Sphere(glm::vec3(-1.0f, 0.0f, -1.0f), 0.5f, new Metal(glm::vec3(0.8f, 0.8f, 0.8f), 0.3f));
+		*_dWorld = new HittableList(_dList, 4);
 		*_dCamera = new Camera(glm::vec3(-2.0f, -1.0f, -1.0f),	// lower left corner
 			glm::vec3(4.0f, 0.0f, 0.0f),	// horizontal 
 			glm::vec3(0.0f, 2.0f, 0.0f),	// vertical
@@ -146,7 +147,7 @@ __global__ void createWorld(Hittable **_dList, Hittable **_dWorld, Camera **_dCa
 
 __global__ void freeWorld(Hittable **_dList, Hittable **_dWorld, Camera **_dCamera)
 {
-	for (int i = 0; i < 3; i++)
+	for (int i = 0; i < 4; i++)
 	{
 		delete ((Sphere*)_dList[i])->_material;
 		delete _dList[i];
@@ -169,7 +170,7 @@ int main()
 	checkCudaErrors(cudaMallocManaged((void**)&frameBuffer, frameBufferSize));
 
 	Hittable **_dList;
-	checkCudaErrors(cudaMalloc((void**) &_dList, 2 * sizeof(Hittable*)));
+	checkCudaErrors(cudaMalloc((void**) &_dList, 4 * sizeof(Hittable*)));
 	Hittable **_dWorld;
 	checkCudaErrors(cudaMalloc((void**) &_dWorld, sizeof(Hittable*)));
 	Camera **_dCamera;

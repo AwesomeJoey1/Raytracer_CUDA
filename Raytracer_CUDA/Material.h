@@ -57,7 +57,7 @@ private:
 class Metal : public Material
 {
 public:
-	__device__ Metal(const glm::vec3& albedo, const float fuzz) : _albedo(albedo), _fuzz(fuzz ? fuzz < 1.0f : 1.0f) { }
+	__device__ Metal(const glm::vec3& albedo, const float fuzz) : _albedo(albedo), _fuzz(fuzz < 1.0f ? fuzz : 1.0f) { }
 	__device__ virtual bool scatter(const Ray& ray, const hitRecord& rec, glm::vec3& attenuation, Ray& rayScattered, curandState* localRandState) const
 	{
 		glm::vec3 reflected = reflect(glm::normalize(ray.direction()), rec.normal);
